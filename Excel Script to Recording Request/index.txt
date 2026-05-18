@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recording Request Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #f5f6fa;
+    color: #1a1a2e;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+    color: white;
+    padding: 28px 36px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .header::after {
+    content: '';
+    position: absolute;
+    right: -40px; top: -40px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    border: 40px solid rgba(255,255,255,0.04);
+  }
+
+  .header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    margin-bottom: 4px;
+  }
+
+  .header p {
+    font-size: 13px;
+    opacity: 0.65;
+    line-height: 1.5;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-top: 10px;
+    color: rgba(255,255,255,0.85);
+  }
+
+  .main { padding: 28px 36px; }
+
+  .card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e8eaf0;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid #f0f1f5;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .card-header .step {
+    width: 24px; height: 24px;
+    background: #0f3460;
+    color: white;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .card-header h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a2e;
+  }
+
+  .card-body { padding: 20px; }
+
+  .drop-zone {
+    border: 2px dashed #c5c8d6;
+    border-radius: 8px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #fafbfd;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: #0f3460;
+    background: #eef2f9;
+  }
+
+  .drop-zone.loaded {
+    border-color: #22c55e;
+    background: #f0fdf4;
+    border-style: solid;
+  }
+
+  .drop-icon {
+    font-size: 36px;
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .drop-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a2e;
+    margin-bottom: 4px;
+  }
+
+  .drop-sub {
+    font-size: 12px;
+    color: #7a7d8c;
+  }
+
+  .drop-sub strong { color: #0f3460; }
+
+  input[type="file"] { display: none; }
+
+  .prefix-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+  }
+
+  .field-group {
+    flex: 1;
+  }
+
+  .field-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #5a5d70;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .field-group input, .field-group select {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid #dde0ea;
+    border-radius: 7px;
+    font-size: 14px;
+    color: #1a1a2e;
+    background: white;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .field-group input:focus, .field-group select:focus {
+    border-color: #0f3460;
+  }
+
+  .prefix-preview {
+    font-size: 12px;
+    color: #7a7d8c;
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #f5f6fa;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    line-height: 1.8;
+  }
+
+  .prefix-preview strong { color: #0f3460; }
+
+  .sheet-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+  }
+
+  .sheet-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1.5px solid #e0e3ee;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 12px;
+    color: #3a3d50;
+    background: white;
+  }
+
+  .sheet-item:hover { border-color: #0f3460; background: #f0f4ff; }
+  .sheet-item.active {
+    border-color: #0f3460;
+    background: #eef2f9;
+    color: #0f3460;
+    font-weight: 600;
+  }
+
+  .sheet-item input[type="checkbox"] {
+    accent-color: #0f3460;
+    width: 14px; height: 14px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: none;
+  }
+
+  .btn-primary {
+    background: #0f3460;
+    color: white;
+  }
+
+  .btn-primary:hover { background: #0a2545; transform: translateY(-1px); }
+  .btn-primary:disabled { background: #c5c8d6; cursor: not-allowed; transform: none; }
+
+  .btn-success {
+    background: #16a34a;
+    color: white;
+  }
+  .btn-success:hover { background: #138a40; transform: translateY(-1px); }
+
+  .btn-outline {
+    background: white;
+    color: #0f3460;
+    border: 1.5px solid #0f3460;
+  }
+  .btn-outline:hover { background: #eef2f9; }
+
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .preview-section { margin-top: 20px; }
+
+  .preview-table-wrap {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid #e8eaf0;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  th {
+    background: #1a1a2e;
+    color: white;
+    padding: 9px 12px;
+    text-align: left;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 7px 12px;
+    border-bottom: 1px solid #f0f1f5;
+    color: #2a2d3e;
+    vertical-align: top;
+    max-width: 320px;
+  }
+
+  tr:hover td { background: #f8f9fd; }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+
+  .tag-tt { background: #dbeafe; color: #1e40af; }
+  .tag-qt { background: #dcfce7; color: #166534; }
+  .tag-r  { background: #fef3c7; color: #92400e; }
+
+  .stats {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .stat-tt { background: #dbeafe; color: #1e40af; }
+  .stat-qt { background: #dcfce7; color: #166534; }
+  .stat-r  { background: #fef3c7; color: #92400e; }
+  .stat-total { background: #f0f1f5; color: #3a3d50; }
+
+  .code-cell {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: #0f3460;
+    white-space: nowrap;
+  }
+
+  .sms-cell {
+    color: #5a5d70;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #9a9dad;
+  }
+
+  .empty-icon { font-size: 40px; margin-bottom: 10px; }
+  .empty-title { font-size: 14px; font-weight: 600; color: #5a5d70; margin-bottom: 4px; }
+
+  .alert {
+    padding: 10px 14px;
+    border-radius: 7px;
+    font-size: 13px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .alert-info { background: #eef2f9; color: #0f3460; border: 1px solid #c5d3ee; }
+  .alert-success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+  .alert-warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Recording Request Generator</h1>
+  <p>Upload a CipherHealth script spreadsheet to generate a structured recording request file</p>
+  <div class="badge">📋 Produces: Recording Name · Recording Details · Translations</div>
+</div>
+
+<div class="main">
+
+  <!-- Step 1: Upload -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step">1</div>
+      <h2>Upload Script Spreadsheet</h2>
+    </div>
+    <div class="card-body">
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <span class="drop-icon" id="dropIcon">📂</span>
+        <div class="drop-title" id="dropTitle">Click or drag &amp; drop your script .xlsx file</div>
+        <div class="drop-sub" id="dropSub">Supports <strong>CHF Outreach</strong> and similar CipherHealth script formats</div>
+      </div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls">
+    </div>
+  </div>
+
+  <!-- Step 2: Configure -->
+  <div class="card" id="configCard" style="display:none">
+    <div class="card-header">
+      <div class="step">2</div>
+      <h2>Configure Naming Prefix</h2>
+    </div>
+    <div class="card-body">
+      <div class="prefix-row">
+        <div class="field-group">
+          <label>Client / Program ID</label>
+          <input type="text" id="clientId" placeholder="e.g. lmh_chf" value="lmh_chf">
+        </div>
+        <div class="field-group" style="flex:0.5">
+          <label>Outreach Number</label>
+          <select id="outreachNum">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+      </div>
+      <div class="prefix-preview" id="prefixPreview">
+        Preview: <strong>e_lmh_chf_introduction_tt</strong> · <strong>e_lmh_chf_introduction_qt</strong> · <strong>e_lmh_chf_whoanswered_r1</strong>
+      </div>
+
+      <div style="margin-top:18px">
+        <label style="font-size:12px;font-weight:600;color:#5a5d70;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:10px">Select Sheets to Process</label>
+        <div class="sheet-grid" id="sheetGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Actions -->
+  <div class="card" id="actionCard" style="display:none">
+    <div class="card-header">
+      <div class="step">3</div>
+      <h2>Generate &amp; Preview</h2>
+    </div>
+    <div class="card-body">
+      <div class="actions">
+        <button class="btn btn-primary" id="previewBtn" onclick="generateData(true)">👁 Preview Output</button>
+        <button class="btn btn-success" id="downloadBtn" onclick="generateData(false)" disabled>⬇ Download Excel</button>
+        <button class="btn btn-outline" onclick="resetAll()">↺ Start Over</button>
+      </div>
+
+      <div class="preview-section" id="previewSection"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let workbookData = null;
+let allSheets = [];
+
+const fileInput = document.getElementById('fileInput');
+const dropZone = document.getElementById('dropZone');
+
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+
+document.getElementById('clientId').addEventListener('input', updatePreview);
+document.getElementById('outreachNum').addEventListener('change', updatePreview);
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(e.target.result, { type: 'array' });
+    workbookData = wb;
+    allSheets = wb.SheetNames;
+
+    dropZone.classList.add('loaded');
+    document.getElementById('dropIcon').textContent = '✅';
+    document.getElementById('dropTitle').textContent = file.name;
+    document.getElementById('dropSub').textContent = `${allSheets.length} sheet(s) found: ${allSheets.join(', ')}`;
+
+    buildSheetGrid();
+    updateOutreachOptions();
+    document.getElementById('configCard').style.display = '';
+    document.getElementById('actionCard').style.display = '';
+    updatePreview();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function buildSheetGrid() {
+  const grid = document.getElementById('sheetGrid');
+  grid.innerHTML = '';
+  allSheets.forEach((name, i) => {
+    const item = document.createElement('div');
+    item.className = 'sheet-item active';
+    item.dataset.sheet = name;
+    item.innerHTML = `<input type="checkbox" checked id="cb_${i}"> <label for="cb_${i}" style="cursor:pointer">${name}</label>`;
+    item.querySelector('input').addEventListener('change', () => {
+      item.classList.toggle('active', item.querySelector('input').checked);
+    });
+    grid.appendChild(item);
+  });
+}
+
+function updateOutreachOptions() {
+  const sel = document.getElementById('outreachNum');
+  sel.innerHTML = '';
+  allSheets.forEach((name, i) => {
+    const opt = document.createElement('option');
+    opt.value = i + 1;
+    opt.textContent = i + 1;
+    sel.appendChild(opt);
+  });
+}
+
+function getPrefix() {
+  const cid = document.getElementById('clientId').value.trim().replace(/\s+/g, '_').toLowerCase() || 'client';
+  return `e_${cid}`;
+}
+
+function cleanTitle(title) {
+  if (!title) return '';
+  return title
+    .replace(/\n/g, ' ')
+    .replace(/\s*\(.*?\)\s*/g, '')
+    .trim()
+    .replace(/[^a-zA-Z0-9\s]/g, '')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
+function updatePreview() {
+  const prefix = getPrefix();
+  const example = `${prefix}_introduction`;
+  document.getElementById('prefixPreview').innerHTML =
+    `Preview: <strong>${example}_tt</strong> · <strong>${example}_qt</strong> · <strong>${example}_r1</strong>`;
+}
+
+function getSelectedSheets() {
+  const items = document.querySelectorAll('.sheet-item');
+  const selected = [];
+  items.forEach(item => {
+    if (item.querySelector('input').checked) selected.push(item.dataset.sheet);
+  });
+  return selected;
+}
+
+function parseSheet(sheetName) {
+  const ws = workbookData.Sheets[sheetName];
+  const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+  let headerRowIdx = -1;
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] && raw[i][0] === 'Title') { headerRowIdx = i; break; }
+  }
+  if (headerRowIdx === -1) return [];
+
+  const headers = raw[headerRowIdx];
+  const colIdx = {
+    title: headers.indexOf('Title'),
+    transitionText: headers.findIndex(h => h && h.toLowerCase().includes('transition')),
+    prompt: headers.findIndex(h => h && h.toLowerCase() === 'prompt'),
+    smsQuestion: headers.findIndex(h => h && h.toLowerCase().includes('sms question')),
+    responseTitle: headers.findIndex(h => h && h.toLowerCase().includes('response title')),
+    voiceResponse: headers.findIndex(h => h && (h.toLowerCase().includes('voice response') || h.toLowerCase() === 'response 1')),
+    smsResponse: headers.findIndex(h => h && h.toLowerCase().includes('sms response')),
+  };
+
+  // If SMS Question not found, try col 3 (index 3)
+  if (colIdx.smsQuestion === -1) colIdx.smsQuestion = 3;
+
+  const rows = raw.slice(headerRowIdx + 1);
+  const prefix = getPrefix();
+  const results = [];
+  let currentTitle = null;
+  let responseCounter = 0;
+
+  rows.forEach(row => {
+    if (!row || row.every(c => c === null || c === '')) return;
+
+    const title = row[colIdx.title];
+    const transitionText = row[colIdx.transitionText];
+    const prompt = row[colIdx.prompt];
+    const smsQuestion = colIdx.smsQuestion >= 0 ? row[colIdx.smsQuestion] : null;
+    const responseTitle = colIdx.responseTitle >= 0 ? row[colIdx.responseTitle] : null;
+    const voiceResponse = colIdx.voiceResponse >= 0 ? row[colIdx.voiceResponse] : null;
+    const smsResponse = colIdx.smsResponse >= 0 ? row[colIdx.smsResponse] : null;
+
+    if (title) {
+      currentTitle = title;
+      responseCounter = 0;
+
+      // .tt row — Transition Text
+      if (transitionText) {
+        results.push({
+          recordingName: `${prefix}_${cleanTitle(title)}_tt`,
+          recordingDetails: transitionText,
+          smsText: null,
+          type: 'tt'
+        });
+      }
+
+      // .qt row — Prompt
+      if (prompt) {
+        results.push({
+          recordingName: `${prefix}_${cleanTitle(title)}_qt`,
+          recordingDetails: prompt,
+          smsText: smsQuestion || null,
+          type: 'qt'
+        });
+      } else if (!transitionText && smsQuestion) {
+        // No prompt but has SMS question (SMS-only question)
+        results.push({
+          recordingName: `${prefix}_${cleanTitle(title)}_qt`,
+          recordingDetails: smsQuestion,
+          smsText: smsQuestion,
+          type: 'qt'
+        });
+      }
+    }
+
+    // .r rows — responses (can appear on title row or continuation rows)
+    if (responseTitle && (voiceResponse || smsResponse)) {
+      responseCounter++;
+      const content = voiceResponse || smsResponse || '';
+      results.push({
+        recordingName: `${prefix}_${cleanTitle(currentTitle || responseTitle)}_r${responseCounter}`,
+        recordingDetails: content,
+        smsText: smsResponse || null,
+        type: 'r'
+      });
+    }
+  });
+
+  return results;
+}
+
+function generateData(previewOnly) {
+  const selected = getSelectedSheets();
+  if (!selected.length) {
+    alert('Please select at least one sheet.');
+    return;
+  }
+
+  let allRows = [];
+  selected.forEach(name => {
+    const parsed = parseSheet(name);
+    allRows = allRows.concat(parsed);
+  });
+
+  if (previewOnly) {
+    renderPreview(allRows);
+    document.getElementById('downloadBtn').disabled = false;
+  } else {
+    downloadExcel(allRows);
+  }
+}
+
+function renderPreview(rows) {
+  const tt = rows.filter(r => r.type === 'tt').length;
+  const qt = rows.filter(r => r.type === 'qt').length;
+  const r  = rows.filter(r => r.type === 'r').length;
+
+  const section = document.getElementById('previewSection');
+  section.innerHTML = `
+    <div class="stats" style="margin-top:16px">
+      <div class="stat-pill stat-total">📊 Total: ${rows.length}</div>
+      <div class="stat-pill stat-tt">🔵 .tt (transition): ${tt}</div>
+      <div class="stat-pill stat-qt">🟢 .qt (prompt): ${qt}</div>
+      <div class="stat-pill stat-r">🟡 .r (response): ${r}</div>
+    </div>
+    <div class="preview-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:220px">Recording Name</th>
+            <th style="width:40px">Type</th>
+            <th>Recording Details</th>
+            <th style="width:220px">SMS Text</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              <td class="code-cell">${esc(row.recordingName)}</td>
+              <td><span class="tag tag-${row.type}">.${row.type}</span></td>
+              <td class="sms-cell">${esc(row.recordingDetails || '')}</td>
+              <td class="sms-cell">${row.smsText ? esc(row.smsText) : '<span style="color:#c5c8d6">—</span>'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function downloadExcel(rows) {
+  const wsData = [['Recording Name', 'Recording Details', 'Translations']];
+  rows.forEach(row => {
+    wsData.push([row.recordingName, row.recordingDetails || '', row.smsText || '']);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = [{ wch: 45 }, { wch: 80 }, { wch: 80 }];
+
+  // Style header row (basic)
+  const headerStyle = { font: { bold: true } };
+  ['A1','B1','C1'].forEach(ref => {
+    if (!ws[ref].s) ws[ref].s = {};
+    ws[ref].s = headerStyle;
+  });
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Recording Requests');
+
+  const cid = document.getElementById('clientId').value.trim().replace(/\s+/g,'_').toLowerCase() || 'client';
+  XLSX.writeFile(wb, `recording_request_${cid}.xlsx`);
+}
+
+function resetAll() {
+  workbookData = null;
+  allSheets = [];
+  document.getElementById('fileInput').value = '';
+  document.getElementById('dropZone').classList.remove('loaded');
+  document.getElementById('dropIcon').textContent = '📂';
+  document.getElementById('dropTitle').textContent = 'Click or drag & drop your script .xlsx file';
+  document.getElementById('dropSub').innerHTML = 'Supports <strong>CHF Outreach</strong> and similar CipherHealth script formats';
+  document.getElementById('configCard').style.display = 'none';
+  document.getElementById('actionCard').style.display = 'none';
+  document.getElementById('previewSection').innerHTML = '';
+}
+</script>
+
+</body>
+</html>
